@@ -1,0 +1,13 @@
+[project]
+name = "tournament-ui"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi[standard]>=0.116.1",
+    "pydantic>=2.11.7",
+    "sqlalchemy>=2.0.43",
+    "streamlit>=1.48.1",
+    "streamlit-calendar>=1.4.0",
+]

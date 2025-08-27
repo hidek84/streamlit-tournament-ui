@@ -1,0 +1,337 @@
+from datetime import datetime, time, timedelta
+
+import pandas as pd
+import streamlit as st
+from streamlit_calendar import calendar
+
+from models import Match, Player, SessionLocal
+from utils import (
+    check_if_my_event,
+    convert_sqlalchemy_objects_to_df,
+    generate_hash_from_uid,
+    generate_time_options,
+    get_matches_as_cal_events,
+    get_my_matches_df,
+    get_my_matches_df_player1_as_me,
+    get_rankings,
+    supply_full_user_info_to_match_df,
+)
+
+st.set_page_config(page_title="Table Tennis Tournament", layout="wide")
+st.title("🏓 Table Tennis Tournament")
+
+# User bar - typically this would come from a login system
+user_name = "lucy"  # This would be dynamic in real application
+st.warning(
+    f"👤 Logged in as: {user_name} [Calendar Link](http://localhost:8000/api/matches/ical?hash={generate_hash_from_uid(user_name)})"
+)
+
+# Main content
+st.header("Group League Information")
+
+col_left, col_right = st.columns([0.7, 0.3])
+
+with col_left:
+    # Your opponents table
+    container_your_opponents = st.container(gap=None)
+
+    # Match scheduling calendar
+    st.subheader("Match Schedule")
+
+    if "events" not in st.session_state:
+        with SessionLocal() as session:
+            st.session_state["events"] = get_matches_as_cal_events(session, user_name)
+
+    calendar_options = {
+        "headerToolbar": {
+            "left": "prev,next",
+            "center": "title",
+            "right": "dayGridMonth,timeGridWeek,listMonth",
+        },
+        "initialDate": "2025-10-01",
+        "selectable": True,
+        "editable": True,
+        "initialView": "dayGridMonth",
+        "slotMinTime": "07:00:00",
+        "slotMaxTime": "21:00:00",
+    }
+    custom_css = """
+        .fc-event {
+            text-wrap: wrap;
+        }
+        .fc-event-main {
+            text-wrap: wrap;
+        }
+    """
+    with SessionLocal() as session:
+        events = get_matches_as_cal_events(session, user_name)
+    state = calendar(
+        events=events,
+        options=calendar_options,
+        custom_css=custom_css,
+        key="calendar",
+    )
+
+    @st.dialog("Add Event")
+    def add_event(selected_date):
+        selected_datetime = (
+            datetime.strptime(selected_date, "%Y-%m-%dT%H:%M:%S.000Z")
+            + timedelta(hours=9)
+        ).isoformat()
+
+        with SessionLocal() as session:
+            my_matches_df = supply_full_user_info_to_match_df(
+                session, get_my_matches_df_player1_as_me(session, user_name)
+            )
+            not_scheduled_matches_aligned_for_me_df = my_matches_df[
+                my_matches_df["start"].isna()
+            ]
+
+        match = st.selectbox(
+            "Select Opponent",
+            not_scheduled_matches_aligned_for_me_df.to_dict(orient="records"),
+            format_func=lambda x: x["full_name_player2"],
+        )
+
+        new_date = st.date_input("Match Date", value=pd.to_datetime(selected_datetime))
+        # new_time = st.time_input(
+        #     "Edit Event Time",
+        #     value=pd.to_datetime(selected_datetime),
+        #     step=timedelta(minutes=30),
+        # )
+        new_time = st.selectbox(
+            "Match Time",
+            options=generate_time_options(time(9, 0), time(21, 0), 30),
+        )
+        new_start_time = datetime.combine(new_date, new_time)
+        new_end_time = new_start_time + timedelta(minutes=30)
+        if st.button("Make Match"):
+            new_match = {
+                **match,
+                **{
+                    "title": f"vs {match['full_name_player2']}",
+                    "start": new_start_time.isoformat(),
+                    "end": new_end_time.isoformat(),
+                },
+            }
+            with SessionLocal() as session:
+                db_event = (
+                    session.query(Match).filter(Match.id == new_match["id"]).first()
+                )
+                if not db_event:
+                    st.error(f"Event with ID {new_match['id']} not found.")
+                    return
+
+                # Update the event details
+                db_event.start = new_match["start"]
+                db_event.end = new_match["end"]
+
+                # Commit the changes
+                session.commit()
+
+            st.session_state["events"].append(
+                {
+                    "id": new_match["id"],
+                    "title": new_match["title"],
+                    "start": new_start_time.isoformat(),
+                    "end": new_end_time.isoformat(),
+                    "backgroundColor": (
+                        "#ff0000"
+                        if new_match["player1_uid"] == user_name
+                        or new_match["player2_uid"] == user_name
+                        else "#0000ff"
+                    ),
+                }
+            )
+            st.success(f"New event '{new_match}' added on {selected_date}")
+            st.rerun()
+
+    @st.dialog("Update Match")
+    def update_event(event):
+        st.write(f"Editing Match: {event['title']} on {event['start']}")
+        # new_date = st.date_input(
+        #     "Edit Event Date", value=pd.to_datetime(event["start"])
+        # )
+        new_time = st.time_input(
+            "Edit Match Time",
+            value=pd.to_datetime(event["start"]),
+            step=timedelta(minutes=30),
+        )
+        new_start_time = datetime.combine(pd.to_datetime(event["start"]), new_time)
+        new_end_time = new_start_time + timedelta(minutes=30)
+
+        if st.button("Save Changes"):
+            # Fetch the event from the database using event ID
+            event_id = event["id"]
+            with SessionLocal() as session:
+                db_event = session.query(Match).filter(Match.id == event_id).first()
+                if not db_event:
+                    st.error(f"Event with ID {event_id} not found.")
+                    return
+
+                # Update the event details
+                db_event.start = new_start_time.isoformat()
+                db_event.end = new_end_time.isoformat()
+
+                # Commit the changes
+                session.commit()
+
+            # Update the event in session state (in case it's displayed again in the app)
+            event_list_indices = [
+                idx
+                for idx, event in enumerate(st.session_state["events"])
+                if event["id"] == event_id
+            ]
+            if not event_list_indices:
+                st.error("Error: Match not found in session state.")
+                return
+            event_index = event_list_indices[0]
+            st.session_state["events"][event_index][
+                "start"
+            ] = new_start_time.isoformat()
+            st.session_state["events"][event_index]["end"] = new_end_time.isoformat()
+
+            st.success("Match updated successfully!")
+            st.rerun()
+
+    if state.get("dateClick"):
+        selected_date = state["dateClick"]["date"]
+        with SessionLocal() as session:
+            my_matches_df = get_my_matches_df_player1_as_me(session, user_name)
+            not_scheduled_matches_df = my_matches_df[my_matches_df["start"].isna()]
+        if len(not_scheduled_matches_df) > 0:
+            add_event(selected_date)
+
+    if state.get("eventClick"):
+        event_id = state["eventClick"]["event"]["id"]
+        event_list_indices = [
+            idx
+            for idx, event in enumerate(st.session_state["events"])
+            if event["id"] == event_id
+        ]
+        if not event_list_indices:
+            raise Exception("Error")
+        event_index = event_list_indices[0]
+
+        event = st.session_state["events"][event_index]
+        if check_if_my_event(event, user_name):
+            update_event(event)
+
+    if state.get("eventChange"):
+        print("event change")
+        event_id = state["eventChange"]["oldEvent"]["id"]
+        event_list_indices = [
+            idx
+            for idx, event in enumerate(st.session_state["events"])
+            if event["id"] == event_id
+        ]
+        if not event_list_indices:
+            raise Exception("Error")
+
+        with SessionLocal() as session:
+            db_event = session.query(Match).filter(Match.id == event_id).first()
+            if not db_event:
+                st.error(f"Event with ID {event_id} not found.")
+
+            # Update the event details
+            db_event.title = state["eventChange"]["event"]["title"]
+            db_event.start = state["eventChange"]["event"]["start"]
+            db_event.end = state["eventChange"]["event"]["end"]
+
+            # Commit the changes
+            session.commit()
+
+        original_events = st.session_state["events"]
+        original_events[event_list_indices[0]] = state["eventChange"]["event"]
+        st.session_state["events"] = original_events
+        print(st.session_state["events"][event_list_indices[0]])
+        # st.rerun()
+
+    with container_your_opponents:
+        st.subheader("Your Games")
+        with SessionLocal() as session:
+            my_matches_df = get_my_matches_df(session, user_name)
+            opponent_matches_df = supply_full_user_info_to_match_df(
+                session, my_matches_df
+            ).set_index("id")[
+                [
+                    "full_name_player1",
+                    "player1_score",
+                    "player2_score",
+                    "full_name_player2",
+                    "start",
+                ]
+            ]
+
+        edited_data = st.data_editor(
+            opponent_matches_df,
+            hide_index=True,
+            column_config={
+                "full_name_player1": st.column_config.TextColumn(
+                    "Player1",
+                    disabled=True,
+                ),
+                "player1_score": st.column_config.NumberColumn(
+                    "# of Player1 Games", min_value=0, max_value=5, width=20
+                ),
+                "player2_score": st.column_config.NumberColumn(
+                    "# of Player2 Games", min_value=0, max_value=5, width=20
+                ),
+                "full_name_player2": st.column_config.TextColumn(
+                    "Player2",
+                    disabled=True,
+                ),
+                "start": st.column_config.DatetimeColumn(
+                    "Match Date/Time",
+                    format="MMM D (ddd) h:mm a",
+                    step=60 * 30,
+                    disabled=True,
+                ),
+            },
+        )
+        if not edited_data.equals(opponent_matches_df):
+            updated_row = (
+                edited_data[edited_data != opponent_matches_df]
+                .dropna(how="all", axis=0)
+                .dropna(how="all", axis=1)
+            )
+            with SessionLocal() as session:
+                db_event = (
+                    session.query(Match)
+                    .filter(Match.id == updated_row.index.to_list()[0])
+                    .first()
+                )
+
+                for i in [1, 2]:
+                    col = f"player{i}_score"
+                    if col in updated_row.columns:
+                        db_event.__setattr__(col, updated_row[col].tolist()[0])
+
+                # Commit the changes
+                session.commit()
+
+with col_right:
+    # Rankings table
+    st.subheader("Current Rankings")
+
+    with SessionLocal() as session:
+        matches_df = convert_sqlalchemy_objects_to_df(session.query(Match).all())
+
+    ranking_df = get_rankings(matches_df)
+    PLAYERS_DF = convert_sqlalchemy_objects_to_df(session.query(Player).all())
+
+    full_ranking_df = ranking_df.merge(
+        PLAYERS_DF, left_on="player", right_on="uid", how="left"
+    )
+
+    st.dataframe(
+        full_ranking_df[["full_name", "uid", "wins", "losses"]],
+        hide_index=True,
+        column_config={
+            "full_name": st.column_config.TextColumn("Name"),
+            "uid": st.column_config.TextColumn("UID"),
+            "wins": st.column_config.NumberColumn("Wins"),
+            "losses": st.column_config.NumberColumn("Losses"),
+        },
+        height=800,
+    )
