@@ -1,4 +1,4 @@
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 
 import pandas as pd
 import streamlit as st
@@ -32,11 +32,14 @@ with st.container(border=True):
     st.write(f"👤 Logged in as: {user_name}")
 
 # Main content
-st.header("Group League Information")
+target_date = date(2025, 10, 3)
+days_left = target_date - date.today()
+st.header(f"Group League until {target_date} ({days_left.days} Days Left)")
+
 with st.expander("Guide"):
     st.write("Guidance here")
 
-col_left, col_right = st.columns([0.7, 0.3])
+col_left, col_right = st.columns([0.65, 0.35])
 
 with col_left:
     # Your opponents table
@@ -55,11 +58,10 @@ with col_left:
             "center": "title",
             "right": "dayGridMonth,timeGridWeek,listMonth",
         },
-        "initialDate": "2025-10-01",
         "selectable": True,
         "editable": True,
         "initialView": "dayGridMonth",
-        "slotMinTime": "07:00:00",
+        "slotMinTime": "09:00:00",
         "slotMaxTime": "21:00:00",
     }
     custom_css = """
@@ -157,7 +159,7 @@ with col_left:
                     ),
                 }
             )
-            st.success(f"New event '{new_match}' added on {selected_date}")
+            st.success(f"New Match added successfully")
             st.rerun()
 
     @st.dialog("Update Match")
@@ -341,7 +343,7 @@ with col_left:
 
 with col_right:
     # Rankings table
-    st.subheader("Current Rankings")
+    st.subheader("Ranking")
 
     with SessionLocal() as session:
         matches_df = convert_sqlalchemy_objects_to_df(session.query(Match).all())
