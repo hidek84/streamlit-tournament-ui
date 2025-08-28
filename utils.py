@@ -10,7 +10,7 @@ from sqlalchemy import or_
 from models import Match, Player, SessionLocal
 
 
-def get_login_user_uid():
+def get_login_user_uid(cookies):
     return "lucy"
 
 

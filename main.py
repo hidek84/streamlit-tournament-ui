@@ -23,7 +23,7 @@ st.set_page_config(page_title="Table Tennis Tournament", layout="wide")
 st.title("🏓 Table Tennis Tournament")
 
 # User bar - typically this would come from a login system
-user_name = get_login_user_uid()
+user_name = get_login_user_uid(st.context.cookies)
 if not user_name:
     st.warning("You're not logged in.")
     st.stop()
