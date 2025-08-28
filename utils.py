@@ -7,8 +7,10 @@ from typing import Dict, List
 import pandas as pd
 from sqlalchemy import or_
 
-from models import Match, Player
+from models import Match, Player, SessionLocal
 
+def get_user_image_url(user_uid):
+    return f"https://www.dummyimage.com/40x40/000/fff&text={user_uid}"
 
 def get_rankings(df):
     def get_result(row):
@@ -40,6 +42,8 @@ def get_rankings(df):
 
     # Convert to int
     results[["wins", "losses"]] = results[["wins", "losses"]].astype(int)
+    results["user_image_url"] = results["player"].apply(get_user_image_url)
+    results["rank"] = results["wins"].rank(ascending=False, method="dense")
 
     # Sort by wins descending
     return results.sort_values(by="wins", ascending=False)
@@ -114,7 +118,7 @@ def supply_full_user_info_to_match_df(session, match_df):
     PLAYERS_DF = pd.DataFrame.from_records(
         [convert_from_alchemy_to_dict(m) for m in session.query(Player).all()]
     )
-    return match_df.merge(
+    full_info_df = match_df.merge(
         PLAYERS_DF, left_on="player1_uid", right_on="uid", how="left"
     ).merge(
         PLAYERS_DF,
@@ -123,6 +127,9 @@ def supply_full_user_info_to_match_df(session, match_df):
         how="left",
         suffixes=["_player1", "_player2"],
     )
+    for p in ["player1", "player2"]:
+        full_info_df[f"{p}_image_url"] = full_info_df[f"{p}_uid"].apply(get_user_image_url)
+    return full_info_df
 
 
 def get_matches_as_cal_events(session, my_user_id):

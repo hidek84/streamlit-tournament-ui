@@ -14,6 +14,7 @@ from utils import (
     get_my_matches_df,
     get_my_matches_df_player1_as_me,
     get_rankings,
+    get_user_image_url,
     supply_full_user_info_to_match_df,
 )
 
@@ -255,9 +256,11 @@ with col_left:
                 session, my_matches_df
             ).set_index("id")[
                 [
+                    "player1_image_url",
                     "full_name_player1",
                     "player1_score",
                     "player2_score",
+                    "player2_image_url",
                     "full_name_player2",
                     "start",
                 ]
@@ -271,11 +274,19 @@ with col_left:
                     "Player1",
                     disabled=True,
                 ),
+                "player1_image_url": st.column_config.ImageColumn(
+                    "",
+                    width=1
+                ),
                 "player1_score": st.column_config.NumberColumn(
                     "# of Player1 Games", min_value=0, max_value=5, width=20
                 ),
                 "player2_score": st.column_config.NumberColumn(
                     "# of Player2 Games", min_value=0, max_value=5, width=20
+                ),
+                "player2_image_url": st.column_config.ImageColumn(
+                    "",
+                    width=1
                 ),
                 "full_name_player2": st.column_config.TextColumn(
                     "Player2",
@@ -321,15 +332,16 @@ with col_right:
     PLAYERS_DF = convert_sqlalchemy_objects_to_df(session.query(Player).all())
 
     full_ranking_df = ranking_df.merge(
-        PLAYERS_DF, left_on="player", right_on="uid", how="left"
+        PLAYERS_DF, left_on="player", right_on="uid", how="right"
     )
-
+    full_ranking_df["user_image_url"] = full_ranking_df["uid"].apply(get_user_image_url)
     st.dataframe(
-        full_ranking_df[["full_name", "uid", "wins", "losses"]],
+        full_ranking_df[["rank", "user_image_url", "full_name", "wins", "losses"]].sort_values("rank"),
         hide_index=True,
         column_config={
+            "rank": st.column_config.NumberColumn("Rank"),
             "full_name": st.column_config.TextColumn("Name"),
-            "uid": st.column_config.TextColumn("UID"),
+            "user_image_url": st.column_config.ImageColumn(""),
             "wins": st.column_config.NumberColumn("Wins"),
             "losses": st.column_config.NumberColumn("Losses"),
         },
