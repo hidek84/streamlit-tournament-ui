@@ -9,8 +9,14 @@ from sqlalchemy import or_
 
 from models import Match, Player, SessionLocal
 
+
+def get_login_user_uid():
+    return "lucy"
+
+
 def get_user_image_url(user_uid):
     return f"https://www.dummyimage.com/40x40/000/fff&text={user_uid}"
+
 
 def get_rankings(df):
     def get_result(row):
@@ -128,7 +134,9 @@ def supply_full_user_info_to_match_df(session, match_df):
         suffixes=["_player1", "_player2"],
     )
     for p in ["player1", "player2"]:
-        full_info_df[f"{p}_image_url"] = full_info_df[f"{p}_uid"].apply(get_user_image_url)
+        full_info_df[f"{p}_image_url"] = full_info_df[f"{p}_uid"].apply(
+            get_user_image_url
+        )
     return full_info_df
 
 

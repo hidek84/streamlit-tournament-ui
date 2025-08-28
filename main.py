@@ -10,6 +10,7 @@ from utils import (
     convert_sqlalchemy_objects_to_df,
     generate_hash_from_uid,
     generate_time_options,
+    get_login_user_uid,
     get_matches_as_cal_events,
     get_my_matches_df,
     get_my_matches_df_player1_as_me,
@@ -22,10 +23,15 @@ st.set_page_config(page_title="Table Tennis Tournament", layout="wide")
 st.title("🏓 Table Tennis Tournament")
 
 # User bar - typically this would come from a login system
-user_name = "lucy"  # This would be dynamic in real application
-st.warning(
-    f"👤 Logged in as: {user_name} [Calendar Link](http://localhost:8000/api/matches/ical?hash={generate_hash_from_uid(user_name)})"
-)
+user_name = get_login_user_uid()
+if not user_name:
+    st.warning("You're not logged in.")
+    st.stop()
+
+with st.container(border=True):
+    st.warning(
+        f"👤 Logged in as: {user_name} [Calendar Link](http://localhost:8000/api/matches/ical?hash={generate_hash_from_uid(user_name)})"
+    )
 
 # Main content
 st.header("Group League Information")
@@ -274,20 +280,14 @@ with col_left:
                     "Player1",
                     disabled=True,
                 ),
-                "player1_image_url": st.column_config.ImageColumn(
-                    "",
-                    width=1
-                ),
+                "player1_image_url": st.column_config.ImageColumn("", width=1),
                 "player1_score": st.column_config.NumberColumn(
                     "# of Player1 Games", min_value=0, max_value=5, width=20
                 ),
                 "player2_score": st.column_config.NumberColumn(
                     "# of Player2 Games", min_value=0, max_value=5, width=20
                 ),
-                "player2_image_url": st.column_config.ImageColumn(
-                    "",
-                    width=1
-                ),
+                "player2_image_url": st.column_config.ImageColumn("", width=1),
                 "full_name_player2": st.column_config.TextColumn(
                     "Player2",
                     disabled=True,
@@ -336,7 +336,9 @@ with col_right:
     )
     full_ranking_df["user_image_url"] = full_ranking_df["uid"].apply(get_user_image_url)
     st.dataframe(
-        full_ranking_df[["rank", "user_image_url", "full_name", "wins", "losses"]].sort_values("rank"),
+        full_ranking_df[
+            ["rank", "user_image_url", "full_name", "wins", "losses"]
+        ].sort_values("rank"),
         hide_index=True,
         column_config={
             "rank": st.column_config.NumberColumn("Rank"),
