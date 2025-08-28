@@ -295,11 +295,15 @@ with col_left:
                     disabled=True,
                 ),
                 "player1_image_url": st.column_config.ImageColumn("", width=1),
-                "player1_score": st.column_config.NumberColumn(
-                    "# of Player1 Games", min_value=0, max_value=5, width=20
+                "player1_score": st.column_config.SelectboxColumn(
+                    "# of Player1 Games",
+                    options=list(range(0, 4)),
+                    width=1,
                 ),
-                "player2_score": st.column_config.NumberColumn(
-                    "# of Player2 Games", min_value=0, max_value=5, width=20
+                "player2_score": st.column_config.SelectboxColumn(
+                    "# of Player2 Games",
+                    options=list(range(0, 4)),
+                    width=1,
                 ),
                 "player2_image_url": st.column_config.ImageColumn("", width=1),
                 "full_name_player2": st.column_config.TextColumn(
