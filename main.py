@@ -1,3 +1,4 @@
+import threading
 from datetime import date, datetime, time, timedelta
 
 import pandas as pd
@@ -18,6 +19,9 @@ from utils import (
     get_user_image_url,
     supply_full_user_info_to_match_df,
 )
+
+if "lock" not in st.session_state:
+    st.session_state["lock"] = threading.Lock()
 
 st.set_page_config(page_title="Table Tennis Tournament", layout="wide")
 st.title("🏓 Table Tennis Tournament")
@@ -271,26 +275,49 @@ with col_left:
 
     with container_your_opponents:
         st.subheader("Your Games")
-        with SessionLocal() as session:
-            my_matches_df = get_my_matches_df(session, user_name)
-            opponent_matches_df = supply_full_user_info_to_match_df(
-                session, my_matches_df
-            ).set_index("id")[
-                [
-                    "player1_image_url",
-                    "full_name_player1",
-                    "player1_score",
-                    "player2_score",
-                    "player2_image_url",
-                    "full_name_player2",
-                    "start",
-                ]
-            ]
+        if (
+            "matches_df" not in st.session_state
+        ):  # or any(x!=y for x,y in zip(st.session_state["matches_df"], st.session_state["previous_matches_df"]):
+            with SessionLocal() as session:
+                my_matches_df = get_my_matches_df(session, user_name)
+                opponent_matches_df = supply_full_user_info_to_match_df(
+                    session, my_matches_df
+                )
+                st.session_state["matches_df"] = opponent_matches_df.to_dict()
 
-        edited_data = st.data_editor(
-            opponent_matches_df,
+        # https://github.com/streamlit/streamlit/issues/11679
+        def db_on_change(df):
+            with st.session_state["lock"]:
+                # Get a copy of all edited rows in this session
+                all_edits = st.session_state["your_matches_editor"]["edited_rows"]
+                for idx, changes in all_edits.items():
+                    for col, col_value in changes.items():
+                        with SessionLocal() as session:
+                            db_event = (
+                                session.query(Match)
+                                .filter(Match.id == df.iloc[idx, :]["id"])
+                                .first()
+                            )
+                            db_event.__setattr__(col, col_value)
+                            session.commit()
+                            df.iloc[idx, :][col] = col_value
+                            st.session_state["matches_df"] = df.to_dict()
+
+        st.data_editor(
+            pd.DataFrame.from_dict(st.session_state["matches_df"]),
             hide_index=True,
+            on_change=db_on_change,
+            args=[pd.DataFrame.from_dict(st.session_state["matches_df"])],
             key="your_matches_editor",
+            column_order=[
+                "player1_image_url",
+                "full_name_player1",
+                "player1_score",
+                "player2_score",
+                "player2_image_url",
+                "full_name_player2",
+                "start",
+            ],
             column_config={
                 "full_name_player1": st.column_config.TextColumn(
                     "Player1",
@@ -320,26 +347,6 @@ with col_left:
                 ),
             },
         )
-        if not edited_data.equals(opponent_matches_df):
-            updated_row = (
-                edited_data[edited_data != opponent_matches_df]
-                .dropna(how="all", axis=0)
-                .dropna(how="all", axis=1)
-            )
-            with SessionLocal() as session:
-                db_event = (
-                    session.query(Match)
-                    .filter(Match.id == updated_row.index.to_list()[0])
-                    .first()
-                )
-
-                for i in [1, 2]:
-                    col = f"player{i}_score"
-                    if col in updated_row.columns:
-                        db_event.__setattr__(col, updated_row[col].tolist()[0])
-
-                # Commit the changes
-                session.commit()
 
 with col_right:
     # Rankings table

@@ -55,7 +55,6 @@ def get_rankings(df):
         df["loser"].value_counts().rename_axis("player").reset_index(name="losses")
     )
 
-    print(df[["winner", "wins_diff"]].groupby("winner").sum().reset_index().fillna(0))
     # Merge wins and losses
     results = (
         pd.merge(win_counts, loss_counts, on="player", how="outer")
