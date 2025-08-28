@@ -288,6 +288,7 @@ with col_left:
         edited_data = st.data_editor(
             opponent_matches_df,
             hide_index=True,
+            key="your_matches_editor",
             column_config={
                 "full_name_player1": st.column_config.TextColumn(
                     "Player1",
