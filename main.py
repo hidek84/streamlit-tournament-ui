@@ -1,3 +1,4 @@
+import copy
 import threading
 from datetime import date, datetime, time, timedelta
 
@@ -22,6 +23,8 @@ from utils import (
 
 if "lock" not in st.session_state:
     st.session_state["lock"] = threading.Lock()
+if "previous_events" not in st.session_state:
+    st.session_state["previous_events"] = []
 
 st.set_page_config(page_title="Table Tennis Tournament", layout="wide")
 st.title("🏓 Table Tennis Tournament")
@@ -275,15 +278,21 @@ with col_left:
 
     with container_your_opponents:
         st.subheader("Your Games")
-        if (
-            "matches_df" not in st.session_state
-        ):  # or any(x!=y for x,y in zip(st.session_state["matches_df"], st.session_state["previous_matches_df"]):
+        if ("matches_df" not in st.session_state) or any(
+            x != y
+            for x, y in zip(
+                st.session_state["events"], st.session_state["previous_events"]
+            )
+        ):
             with SessionLocal() as session:
                 my_matches_df = get_my_matches_df(session, user_name)
                 opponent_matches_df = supply_full_user_info_to_match_df(
                     session, my_matches_df
                 )
                 st.session_state["matches_df"] = opponent_matches_df.to_dict()
+                st.session_state["previous_events"] = copy.deepcopy(
+                    st.session_state["events"]
+                )
 
         # https://github.com/streamlit/streamlit/issues/11679
         def db_on_change(df):
