@@ -86,8 +86,9 @@ def get_my_matches_df(session, my_user_uid):
         .all()
     )
     my_matches_df = convert_sqlalchemy_objects_to_df(my_matches)
-    for col in ["start", "end"]:
-        my_matches_df[col] = pd.to_datetime(my_matches_df[col], format="ISO8601")
+    if len(my_matches_df) > 0:
+        for col in ["start", "end"]:
+            my_matches_df[col] = pd.to_datetime(my_matches_df[col], format="ISO8601")
     return my_matches_df
 
 
