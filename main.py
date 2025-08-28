@@ -106,9 +106,16 @@ with col_left:
         #     value=pd.to_datetime(selected_datetime),
         #     step=timedelta(minutes=30),
         # )
+        time_options = generate_time_options(time(9, 0), time(21, 0), 30)
+        try:
+            option_index = time_options.index(pd.to_datetime(selected_datetime).time())
+        except ValueError:
+            option_index = 0
+
         new_time = st.selectbox(
             "Match Time",
-            options=generate_time_options(time(9, 0), time(21, 0), 30),
+            index=option_index,
+            options=time_options,
         )
         new_start_time = datetime.combine(new_date, new_time)
         new_end_time = new_start_time + timedelta(minutes=30)
@@ -159,10 +166,16 @@ with col_left:
         # new_date = st.date_input(
         #     "Edit Event Date", value=pd.to_datetime(event["start"])
         # )
-        new_time = st.time_input(
-            "Edit Match Time",
-            value=pd.to_datetime(event["start"]),
-            step=timedelta(minutes=30),
+        time_options = generate_time_options(time(9, 0), time(21, 0), 30)
+        try:
+            option_index = time_options.index(pd.to_datetime(event["start"]).time())
+        except ValueError:
+            option_index = 0
+
+        new_time = st.selectbox(
+            "Match Time",
+            index=option_index,
+            options=time_options,
         )
         new_start_time = datetime.combine(pd.to_datetime(event["start"]), new_time)
         new_end_time = new_start_time + timedelta(minutes=30)
