@@ -29,18 +29,18 @@ if not user_name:
     st.stop()
 
 with st.container(border=True):
-    st.warning(
-        f"👤 Logged in as: {user_name} [Calendar Link](http://localhost:8000/api/matches/ical?hash={generate_hash_from_uid(user_name)})"
-    )
+    st.write(f"👤 Logged in as: {user_name}")
 
 # Main content
 st.header("Group League Information")
+with st.expander("Guide"):
+    st.write("Guidance here")
 
 col_left, col_right = st.columns([0.7, 0.3])
 
 with col_left:
     # Your opponents table
-    container_your_opponents = st.container(gap=None)
+    container_your_opponents = st.container(gap="small")
 
     # Match scheduling calendar
     st.subheader("Match Schedule")
