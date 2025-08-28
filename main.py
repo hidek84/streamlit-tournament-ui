@@ -351,8 +351,8 @@ with col_right:
     full_ranking_df["user_image_url"] = full_ranking_df["uid"].apply(get_user_image_url)
     st.dataframe(
         full_ranking_df[
-            ["rank", "user_image_url", "full_name", "wins", "losses"]
-        ].sort_values("rank"),
+            ["rank", "user_image_url", "full_name", "wins", "losses", "wins_diff"]
+        ].sort_values(["rank", "wins_diff"], ascending=[True, False]),
         hide_index=True,
         column_config={
             "rank": st.column_config.NumberColumn("Rank"),
@@ -360,6 +360,7 @@ with col_right:
             "user_image_url": st.column_config.ImageColumn(""),
             "wins": st.column_config.NumberColumn("Wins"),
             "losses": st.column_config.NumberColumn("Losses"),
+            "wins_diff": st.column_config.NumberColumn("Points"),
         },
         height=800,
     )

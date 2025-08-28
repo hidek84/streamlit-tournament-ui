@@ -23,14 +23,26 @@ def get_rankings(df):
         if pd.isna(row["player1_score"]) or pd.isna(row["player2_score"]):
             return pd.Series([None, None])
         if row["player1_score"] > row["player2_score"]:
-            return pd.Series([row["player1_uid"], row["player2_uid"]])
+            return pd.Series(
+                [
+                    row["player1_uid"],
+                    row["player2_uid"],
+                    (row["player1_score"] - row["player2_score"]),
+                ]
+            )
         elif row["player2_score"] > row["player1_score"]:
-            return pd.Series([row["player2_uid"], row["player1_uid"]])
+            return pd.Series(
+                [
+                    row["player2_uid"],
+                    row["player1_uid"],
+                    (row["player2_score"] - row["player1_score"]),
+                ]
+            )
         else:
-            return pd.Series([None, None])  # tie
+            return pd.Series([None, None, 0])  # tie
 
     # Apply function to get winner and loser columns
-    df[["winner", "loser"]] = df.apply(get_result, axis=1)
+    df[["winner", "loser", "wins_diff"]] = df.apply(get_result, axis=1)
 
     # Remove ties (no winner/loser)
     df = df[df["winner"].notna()]
@@ -43,13 +55,31 @@ def get_rankings(df):
         df["loser"].value_counts().rename_axis("player").reset_index(name="losses")
     )
 
+    print(df[["winner", "wins_diff"]].groupby("winner").sum().reset_index().fillna(0))
     # Merge wins and losses
-    results = pd.merge(win_counts, loss_counts, on="player", how="outer").fillna(0)
+    results = (
+        pd.merge(win_counts, loss_counts, on="player", how="outer")
+        .fillna(0)
+        .merge(
+            df[["winner", "wins_diff"]].groupby("winner").sum().reset_index().fillna(0),
+            left_on="player",
+            right_on="winner",
+            how="left",
+        )
+        .fillna({"wins_diff": 0})
+    )
 
     # Convert to int
     results[["wins", "losses"]] = results[["wins", "losses"]].astype(int)
     results["user_image_url"] = results["player"].apply(get_user_image_url)
-    results["rank"] = results["wins"].rank(ascending=False, method="dense")
+    results["rank"] = (
+        results[["wins", "wins_diff"]]
+        .apply(tuple, axis=1)
+        .rank(
+            ascending=False,
+            method="dense",
+        )
+    )
 
     # Sort by wins descending
     return results.sort_values(by="wins", ascending=False)
