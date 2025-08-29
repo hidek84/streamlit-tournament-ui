@@ -152,20 +152,20 @@ with col_left:
                 # Commit the changes
                 session.commit()
 
-            st.session_state["events"].append(
-                {
-                    "id": new_match["id"],
-                    "title": new_match["title"],
-                    "start": new_start_time.isoformat(),
-                    "end": new_end_time.isoformat(),
-                    "backgroundColor": (
-                        "#ff0000"
-                        if new_match["player1_uid"] == user_name
-                        or new_match["player2_uid"] == user_name
-                        else "#0000ff"
-                    ),
-                }
-            )
+            for idx, e in enumerate(st.session_state["events"]):
+                if e["id"] == new_match["id"]:
+                    st.session_state["events"][idx] = {
+                        "id": new_match["id"],
+                        "title": new_match["title"],
+                        "start": new_start_time.isoformat(),
+                        "end": new_end_time.isoformat(),
+                        "backgroundColor": (
+                            "#ff0000"
+                            if new_match["player1_uid"] == user_name
+                            or new_match["player2_uid"] == user_name
+                            else "#0000ff"
+                        ),
+                    }
             st.success(f"New Match added successfully")
             st.rerun()
 
