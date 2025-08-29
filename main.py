@@ -165,6 +165,7 @@ with col_left:
                             or new_match["player2_uid"] == user_name
                             else "#0000ff"
                         ),
+                        "extendedProps": {"source": new_match},
                     }
             st.success(f"New Match added successfully")
             st.rerun()
