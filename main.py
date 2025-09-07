@@ -21,6 +21,8 @@ from utils import (
     supply_full_user_info_to_match_df,
 )
 
+NUM_OF_MAX_GAMES = 3
+
 if "lock" not in st.session_state:
     st.session_state["lock"] = threading.Lock()
 if "previous_events" not in st.session_state:
@@ -301,6 +303,14 @@ with col_left:
                 # Get a copy of all edited rows in this session
                 all_edits = st.session_state["your_matches_editor"]["edited_rows"]
                 for idx, changes in all_edits.items():
+                    if "player1_score" in changes.keys():
+                        changes["player2_score"] = (
+                            NUM_OF_MAX_GAMES - changes["player1_score"]
+                        )
+                    if "player2_score" in changes.keys():
+                        changes["player1_score"] = (
+                            NUM_OF_MAX_GAMES - changes["player2_score"]
+                        )
                     for col, col_value in changes.items():
                         with SessionLocal() as session:
                             db_event = (
@@ -310,8 +320,8 @@ with col_left:
                             )
                             db_event.__setattr__(col, col_value)
                             session.commit()
-                            df.iloc[idx, :][col] = col_value
-                            st.session_state["matches_df"] = df.to_dict()
+                            df.loc[idx, col] = col_value
+                    st.session_state["matches_df"] = df.to_dict()
 
         st.data_editor(
             pd.DataFrame.from_dict(st.session_state["matches_df"]),
