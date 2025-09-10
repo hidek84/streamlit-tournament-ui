@@ -113,26 +113,19 @@ def convert_sqlalchemy_objects_to_df(sqlalchemy_objects) -> pd.DataFrame:
     return pd.DataFrame.from_records(d)
 
 
-def get_my_matches_df(session, my_user_uid):
-    my_matches = (
-        session.query(Match)
-        .filter(
-            or_(
-                Match.player1_uid == my_user_uid,
-                Match.player2_uid == my_user_uid,
-            ),
-        )
-        .all()
-    )
-    my_matches_df = convert_sqlalchemy_objects_to_df(my_matches)
+def get_my_matches_df(all_matches_df, my_user_uid):
+    my_matches_df = all_matches_df[
+        (all_matches_df.player1_uid == my_user_uid)
+        | (all_matches_df.player2_uid == my_user_uid)
+    ]
     if len(my_matches_df) > 0:
         for col in ["start", "end"]:
             my_matches_df[col] = pd.to_datetime(my_matches_df[col], format="ISO8601")
     return my_matches_df
 
 
-def get_my_matches_df_player1_as_me(session, my_user_uid):
-    my_matches_df = get_my_matches_df(session, my_user_uid)
+def get_my_matches_df_player1_as_me(all_matches_df, my_user_uid):
+    my_matches_df = get_my_matches_df(all_matches_df, my_user_uid)
     concatenated_df = pd.concat(
         [
             my_matches_df,
@@ -166,8 +159,7 @@ def supply_full_user_info_to_match_df(player_df, match_df):
     return full_info_df
 
 
-def get_matches_as_cal_events(session, player_df, my_user_id):
-    all_matches_df = convert_sqlalchemy_objects_to_df(session.query(Match).all())
+def get_matches_as_cal_events(all_matches_df, player_df, my_user_id):
     events = convert_matches_df_to_events(player_df, all_matches_df)
     return set_special_property_if_mine(events, my_user_id)
 

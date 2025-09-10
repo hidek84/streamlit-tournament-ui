@@ -23,6 +23,9 @@ from utils import (
 
 NUM_OF_MAX_GAMES = 3
 
+with SessionLocal() as session:
+    ALL_MATCHES_DF = convert_sqlalchemy_objects_to_df(session.query(Match).all())
+
 if "lock" not in st.session_state:
     st.session_state["lock"] = threading.Lock()
 if "previous_events" not in st.session_state:
@@ -67,7 +70,7 @@ with col_left:
     if "events" not in st.session_state:
         with SessionLocal() as session:
             st.session_state["events"] = get_matches_as_cal_events(
-                session, st.session_state["players"], user_name
+                ALL_MATCHES_DF, st.session_state["players"], user_name
             )
 
     calendar_options = {
@@ -92,7 +95,7 @@ with col_left:
     """
     with SessionLocal() as session:
         events = get_matches_as_cal_events(
-            session, st.session_state["players"], user_name
+            ALL_MATCHES_DF, st.session_state["players"], user_name
         )
     state = calendar(
         events=events,
@@ -111,7 +114,7 @@ with col_left:
         with SessionLocal() as session:
             my_matches_df = supply_full_user_info_to_match_df(
                 st.session_state["players"],
-                get_my_matches_df_player1_as_me(session, user_name),
+                get_my_matches_df_player1_as_me(ALL_MATCHES_DF, user_name),
             )
             not_scheduled_matches_aligned_for_me_df = my_matches_df[
                 my_matches_df["start"].isna()
@@ -241,7 +244,7 @@ with col_left:
     if state.get("dateClick"):
         selected_date = state["dateClick"]["date"]
         with SessionLocal() as session:
-            my_matches_df = get_my_matches_df_player1_as_me(session, user_name)
+            my_matches_df = get_my_matches_df_player1_as_me(ALL_MATCHES_DF, user_name)
             not_scheduled_matches_df = my_matches_df[my_matches_df["start"].isna()]
         if len(not_scheduled_matches_df) > 0:
             add_event(selected_date)
@@ -300,7 +303,7 @@ with col_left:
             )
         ):
             with SessionLocal() as session:
-                my_matches_df = get_my_matches_df(session, user_name)
+                my_matches_df = get_my_matches_df(ALL_MATCHES_DF, user_name)
                 opponent_matches_df = supply_full_user_info_to_match_df(
                     st.session_state["players"], my_matches_df
                 )
@@ -384,10 +387,7 @@ with col_right:
     # Rankings table
     st.subheader("Ranking")
 
-    with SessionLocal() as session:
-        matches_df = convert_sqlalchemy_objects_to_df(session.query(Match).all())
-
-    ranking_df = get_rankings(matches_df)
+    ranking_df = get_rankings(ALL_MATCHES_DF)
 
     full_ranking_df = ranking_df.merge(
         st.session_state["players"], left_on="player", right_on="uid", how="right"
