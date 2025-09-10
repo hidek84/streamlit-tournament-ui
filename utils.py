@@ -149,14 +149,11 @@ def get_my_matches_df_player1_as_me(session, my_user_uid):
     return concatenated_df[concatenated_df["player1_uid"] == my_user_uid]
 
 
-def supply_full_user_info_to_match_df(session, match_df):
-    PLAYERS_DF = pd.DataFrame.from_records(
-        [convert_from_alchemy_to_dict(m) for m in session.query(Player).all()]
-    )
+def supply_full_user_info_to_match_df(player_df, match_df):
     full_info_df = match_df.merge(
-        PLAYERS_DF, left_on="player1_uid", right_on="uid", how="left"
+        player_df, left_on="player1_uid", right_on="uid", how="left"
     ).merge(
-        PLAYERS_DF,
+        player_df,
         left_on="player2_uid",
         right_on="uid",
         how="left",
@@ -169,9 +166,9 @@ def supply_full_user_info_to_match_df(session, match_df):
     return full_info_df
 
 
-def get_matches_as_cal_events(session, my_user_id):
+def get_matches_as_cal_events(session, player_df, my_user_id):
     all_matches_df = convert_sqlalchemy_objects_to_df(session.query(Match).all())
-    events = convert_matches_df_to_events(session, all_matches_df)
+    events = convert_matches_df_to_events(player_df, all_matches_df)
     return set_special_property_if_mine(events, my_user_id)
 
 
@@ -193,7 +190,7 @@ def set_special_property_if_mine(events, my_user_id):
     return updated_events
 
 
-def convert_matches_df_to_events(session, matches_df) -> List[Dict]:
+def convert_matches_df_to_events(player_df, matches_df) -> List[Dict]:
     return [
         {
             "id": m["id"],
@@ -202,7 +199,7 @@ def convert_matches_df_to_events(session, matches_df) -> List[Dict]:
             "end": m["end"],
             "extendedProps": {"source": m},
         }
-        for m in supply_full_user_info_to_match_df(session, matches_df)
+        for m in supply_full_user_info_to_match_df(player_df, matches_df)
         .fillna(value="None")
         .to_dict(orient="records")
     ]

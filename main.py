@@ -27,6 +27,13 @@ if "lock" not in st.session_state:
     st.session_state["lock"] = threading.Lock()
 if "previous_events" not in st.session_state:
     st.session_state["previous_events"] = []
+if "players" not in st.session_state:
+    st.session_state["players"] = []
+    with SessionLocal() as session:
+        st.session_state["players"] = convert_sqlalchemy_objects_to_df(
+            session.query(Player).all()
+        )
+
 
 st.set_page_config(page_title="Table Tennis Tournament", layout="wide")
 st.title("🏓 Table Tennis Tournament")
@@ -59,7 +66,9 @@ with col_left:
 
     if "events" not in st.session_state:
         with SessionLocal() as session:
-            st.session_state["events"] = get_matches_as_cal_events(session, user_name)
+            st.session_state["events"] = get_matches_as_cal_events(
+                session, st.session_state["players"], user_name
+            )
 
     calendar_options = {
         "headerToolbar": {
@@ -82,7 +91,9 @@ with col_left:
         }
     """
     with SessionLocal() as session:
-        events = get_matches_as_cal_events(session, user_name)
+        events = get_matches_as_cal_events(
+            session, st.session_state["players"], user_name
+        )
     state = calendar(
         events=events,
         options=calendar_options,
@@ -99,7 +110,8 @@ with col_left:
 
         with SessionLocal() as session:
             my_matches_df = supply_full_user_info_to_match_df(
-                session, get_my_matches_df_player1_as_me(session, user_name)
+                st.session_state["players"],
+                get_my_matches_df_player1_as_me(session, user_name),
             )
             not_scheduled_matches_aligned_for_me_df = my_matches_df[
                 my_matches_df["start"].isna()
@@ -290,7 +302,7 @@ with col_left:
             with SessionLocal() as session:
                 my_matches_df = get_my_matches_df(session, user_name)
                 opponent_matches_df = supply_full_user_info_to_match_df(
-                    session, my_matches_df
+                    st.session_state["players"], my_matches_df
                 )
                 st.session_state["matches_df"] = opponent_matches_df.to_dict()
                 st.session_state["previous_events"] = copy.deepcopy(
@@ -376,10 +388,9 @@ with col_right:
         matches_df = convert_sqlalchemy_objects_to_df(session.query(Match).all())
 
     ranking_df = get_rankings(matches_df)
-    PLAYERS_DF = convert_sqlalchemy_objects_to_df(session.query(Player).all())
 
     full_ranking_df = ranking_df.merge(
-        PLAYERS_DF, left_on="player", right_on="uid", how="right"
+        st.session_state["players"], left_on="player", right_on="uid", how="right"
     )
     full_ranking_df["user_image_url"] = full_ranking_df["uid"].apply(get_user_image_url)
     st.dataframe(
