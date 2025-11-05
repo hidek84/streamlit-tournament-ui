@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]>=0.116.1",
+    "matplotlib>=3.10.7",
+    "networkx>=3.5",
     "pydantic>=2.11.7",
     "sqlalchemy>=2.0.43",
     "streamlit>=1.48.1",
